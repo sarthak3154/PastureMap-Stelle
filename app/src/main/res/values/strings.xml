@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Stelle-pasture</string>
+    <string name="string_pasture_map">PastureMap</string>
+    <string name="string_show_location">Turn on High Accuracy in Location Settings</string>
+</resources>
