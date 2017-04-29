@@ -14,9 +14,11 @@ public interface MapScreenContract {
     interface View {
         void init();
 
-        List<LatLng> addMarkerPointsPolygon();
+        List<LatLng> addMarkerPointsPolygon(LatLng newLatLng);
 
-        Marker addMarker(LatLng latLng);
+        Marker addMarker(LatLng latLng, boolean isArea);
+
+        void drawPolyLine();
     }
 
 }
