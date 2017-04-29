@@ -104,7 +104,7 @@ public class MapScreenFragment extends Fragment implements MapScreenContract.Vie
             tempPoints.put(0, points.get(0));
             polygonPoints.add(0, points.get(0));
             float MIN = getDistance(points.get(0), points.get(1));
-            for (int i = 0; i < points.size(); i++) {
+            for (int i = 0; i < points.size() - 1; i++) {
                 for (int j = i + 1; j < points.size(); j++) {
                     if (!tempPoints.containsValue(points.get(j)) && (getDistance(tempPoints.get(i), points.get(j)) <= MIN)) {
                         if (polygonPoints.size() == (i + 1)) {
@@ -112,8 +112,13 @@ public class MapScreenFragment extends Fragment implements MapScreenContract.Vie
                         } else {
                             polygonPoints.set(i + 1, points.get(j));
                         }
-                        tempPoints.put(i + 1, points.get(j));
                     }
+                }
+                if (polygonPoints.size() == i + 1) {
+                    tempPoints.put(i + 1, polygonPoints.get(i + 1));
+                } else {
+                    polygonPoints.add(i + 1, points.get(i + 1));
+                    tempPoints.put(i + 1, polygonPoints.get(i + 1));
                 }
             }
         } else {
