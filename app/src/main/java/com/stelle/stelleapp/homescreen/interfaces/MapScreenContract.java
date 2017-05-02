@@ -19,6 +19,8 @@ public interface MapScreenContract {
         Marker addMarker(LatLng latLng, boolean isArea);
 
         void drawPolyLine();
+
+        boolean isLocationPermissionGranted();
     }
 
 }

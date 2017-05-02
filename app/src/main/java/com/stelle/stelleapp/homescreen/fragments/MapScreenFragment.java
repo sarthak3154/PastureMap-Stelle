@@ -8,9 +8,11 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -59,6 +61,8 @@ public class MapScreenFragment extends Fragment implements MapScreenContract.Vie
     ImageView imageRemove;
     @Bind(R.id.imageUndo)
     ImageView imageUndo;
+
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 101;
 
     private ArrayList<Marker> mapMarkers = new ArrayList<>();
     private List<LatLng> points = new ArrayList<>();
@@ -202,17 +206,48 @@ public class MapScreenFragment extends Fragment implements MapScreenContract.Vie
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Utils.showToast(getActivity().getApplicationContext(), getString(R.string.string_show_location));
-            return;
-        }
         this.googleMap = googleMap;
-        googleMap.setMyLocationEnabled(true);
+        if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+
+        } else {
+            googleMap.setMyLocationEnabled(true);
+        }
         UiSettings uiSettings = googleMap.getUiSettings();
         uiSettings.setMapToolbarEnabled(false);
         uiSettings.setMyLocationButtonEnabled(false);
         uiSettings.setCompassEnabled(false);
         googleMap.setOnMapClickListener(this);
+    }
+
+    @Override
+    public boolean isLocationPermissionGranted() {
+        return (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case LOCATION_PERMISSION_REQUEST_CODE:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                    if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        Utils.showToast(getActivity(), getString(R.string.string_show_location));
+                        return;
+                    }
+                    googleMap.setMyLocationEnabled(true);
+                } else {
+                    getActivity().finish();
+                    Timber.e("Location permission denied");
+                }
+                return;
+            default:
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
     }
 
     @Override
@@ -292,42 +327,46 @@ public class MapScreenFragment extends Fragment implements MapScreenContract.Vie
 
     @OnClick(R.id.imageUndo)
     public void onClickUndo() {
-        googleMap.clear();
-        List<LatLng> newPointsList = new ArrayList<>();
-        newPointsList.clear();
-        if (points.size() > 3) {
+        if (googleMap != null) {
+            googleMap.clear();
+            List<LatLng> newPointsList = new ArrayList<>();
+            newPointsList.clear();
             newPointsList = getUndoList();
-            googleMap.addPolygon(new PolygonOptions().addAll(newPointsList)
-                    .fillColor(Color.CYAN).strokeColor(Color.WHITE));
-            area = SphericalUtil.computeArea(points);
+            if (points.size() > 3) {
+                googleMap.addPolygon(new PolygonOptions().addAll(newPointsList)
+                        .fillColor(Color.CYAN).strokeColor(Color.WHITE));
+                area = SphericalUtil.computeArea(points);
 
-        } else if (points.size() <= 3 && points.size() > 1) {
-
-            newPointsList = getUndoList();
-            drawPolyLine();
-        } else {
-            points.clear();
+            } else if (points.size() <= 3 && points.size() > 1) {
+                drawPolyLine();
+            } else {
+                points.clear();
+            }
         }
     }
 
     @OnClick(R.id.imageRemove)
     public void onClickRemove() {
-        googleMap.clear();
-        points.clear();
-        pointsAdded.clear();
+        if (googleMap != null) {
+            googleMap.clear();
+            points.clear();
+            pointsAdded.clear();
+        }
     }
 
     @OnClick(R.id.imageDone)
     public void onClickDone() {
-        googleMap.clear();
-        List<LatLng> pointsList = new ArrayList<>();
-        pointsList.clear();
-        pointsList = points;
-        pointsList.add(points.get(0));
-        googleMap.addPolygon(new PolygonOptions().addAll(pointsList)
-                .fillColor(Color.CYAN).strokeColor(Color.WHITE));
-        area = SphericalUtil.computeArea(points);
-        addMarker(findMapCenter(), true);
+        if (googleMap != null && points.size() > 0) {
+            googleMap.clear();
+            List<LatLng> pointsList = new ArrayList<>();
+            pointsList.clear();
+            pointsList = points;
+            pointsList.add(points.get(0));
+            googleMap.addPolygon(new PolygonOptions().addAll(pointsList)
+                    .fillColor(Color.CYAN).strokeColor(Color.WHITE));
+            area = SphericalUtil.computeArea(points);
+            addMarker(findMapCenter(), true);
+        }
     }
 
     public List<LatLng> getUndoList() {
@@ -339,12 +378,15 @@ public class MapScreenFragment extends Fragment implements MapScreenContract.Vie
             }
         }
         points.clear();
-        pointsAdded.remove(pointsAdded.size() - 1);
+        if (pointsAdded.size() > 0)
+            pointsAdded.remove(pointsAdded.size() - 1);
         points = newPointsList;
         for (int i = 0; i < points.size(); i++) {
             addMarker(points.get(i), false);
         }
-        newPointsList.add(points.get(0));
+        if (points.size() > 0) {
+            newPointsList.add(points.get(0));
+        }
         return newPointsList;
     }
 
